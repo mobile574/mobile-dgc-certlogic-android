@@ -1,0 +1,3 @@
+-dontobfuscate
+-keep class dgca.verifier.app.engine.* { *; }
+-keep class dgca.verifier.app.engine.data.* { *; }

@@ -22,8 +22,8 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro', 'lightmode-rules.pro'
         }
     }
 
@@ -52,14 +52,14 @@ dependencies {
 
     implementation Deps.kotlin_stdlib
     implementation Deps.kotlin_reflect
-    implementation Deps.jackson_cbor
+    compileOnly Deps.jackson_cbor
     implementation Deps.jackson_kotlin
-    implementation Deps.jackson_datetype
-    implementation Deps.retrofit2
-    implementation Deps.lifecycle_livedata_version
-    implementation Deps.room_ktx
+    compileOnly Deps.jackson_datetype
+    compileOnly Deps.retrofit2
+    compileOnly Deps.lifecycle_livedata_version
+    compileOnly Deps.room_ktx
 
-    implementation Deps.room_runtime
+    compileOnly Deps.room_runtime
     kapt Deps.room_compiler
 
     testImplementation Deps.test_junit

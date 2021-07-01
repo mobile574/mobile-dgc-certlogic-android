@@ -30,3 +30,36 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+ext {
+    def getGitHash = { ->
+        return "git rev-parse --short HEAD".execute().text.trim()
+    }
+    def getCommitCount = { ->
+        def code = new ByteArrayOutputStream()
+        exec {
+            commandLine 'git', 'rev-list', '--count', 'HEAD'
+            standardOutput = code
+        }
+        return Integer.parseInt(code.toString().trim())
+    }
+    commitCount = getCommitCount()
+    gitHash = getGitHash()
+}
+
+task buildAllArtifacts() {
+    group = 'Build'
+    description = 'Builds and copies all maven artifact into a folder that can then be used in another project as local repository'
+
+    dependsOn 'engine:publishAllPublicationsToMavenRepository'
+
+    doLast {
+        println 'Copying latest AAR files into local repository'
+        delete 'build/local-maven-repo'
+        copy {
+            from 'engine/build/outputs/maven-artifact'
+            include '**'
+            into 'build/local-maven-repo'
+        }
+    }
+}

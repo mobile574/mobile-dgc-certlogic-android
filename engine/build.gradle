@@ -2,7 +2,10 @@ plugins {
     id 'com.android.library'
     id 'kotlin-android'
     id 'kotlin-kapt'
+    id 'maven-publish'
 }
+
+def LIBRARY_EXPORT_NAME = "dgc-certlogic-android-light_${Config.versionName}-${rootProject.ext.commitCount}-${rootProject.ext.gitHash}"
 
 android {
     compileSdkVersion Config.compileSdk
@@ -39,6 +42,8 @@ android {
             output.assemble.dependsOn lintTask
         }
     }
+
+    project.archivesBaseName = LIBRARY_EXPORT_NAME
 }
 
 dependencies {
@@ -73,4 +78,44 @@ dependencies {
     androidTestImplementation Deps.test_rules
     androidTestImplementation Deps.test_ext
     androidTestImplementation Deps.appache_commons
+}
+
+project.afterEvaluate {
+    publishing {
+        repositories {
+            maven { url "$buildDir/outputs/maven-artifact" }
+        }
+        publications {
+            maven(MavenPublication) {
+                groupId 'dgca.verifier.app'
+                artifactId 'dgc-certlogic-android-light'
+
+                version "${Config.versionName}-${rootProject.ext.commitCount}-${rootProject.ext.gitHash}"
+
+                pom {
+                    name = "EU Digital COVID Certificate - Certlogic Android Light"
+                    description = "A light version of the dgc-certlogic-android module for use with the CWA."
+                    url = "https://github.com/corona-warn-app/dgc-certlogic-android"
+                }
+
+                artifact "$buildDir/outputs/aar/${LIBRARY_EXPORT_NAME}-release.aar"
+
+                pom.withXml {
+                    def dependenciesNode = asNode().appendNode('dependencies')
+                    configurations.implementation.allDependencies.each { dependency ->
+                        if (dependency.name != 'unspecified') {
+                            def dependencyNode = dependenciesNode.appendNode('dependency')
+                            dependencyNode.appendNode('groupId', dependency.group)
+                            dependencyNode.appendNode('artifactId', dependency.name)
+                            dependencyNode.appendNode('version', dependency.version)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+tasks.withType(PublishToMavenRepository) { task ->
+    task.dependsOn assembleRelease
 }

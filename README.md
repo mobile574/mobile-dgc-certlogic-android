@@ -10,6 +10,7 @@
   <a href="./LICENSE" title="License">
     <img src="https://img.shields.io/badge/License-Apache%202.0-green.svg?style=flat">
   </a>
+  <a href="https://api.reuse.software/info/github.com/corona-warn-app/dgc-certlogic-android" title="REUSE Status"><img src="https://api.reuse.software/badge/github.com/corona-warn-app/dgc-certlogic-android"></a>      
 </p>
 
 <p align="center">

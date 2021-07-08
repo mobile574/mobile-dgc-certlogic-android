@@ -1,0 +1,6 @@
+
+#!/usr/bin/env groovy
+
+@Library(['piper-lib', 'cwa-remote-pipelines']) _
+
+cwaDgcCertAndroidPipeline script: this, customDefaults: ['cwa-mobile-clients-defaults.yml', 'dgcCertAndroid/dgc-cert-android-config.yml']

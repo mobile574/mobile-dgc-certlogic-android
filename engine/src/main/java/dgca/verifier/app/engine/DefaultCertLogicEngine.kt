@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.readValue
+import dgca.verifier.app.engine.data.CertificateType
 import dgca.verifier.app.engine.data.ExternalParameter
 import dgca.verifier.app.engine.data.Rule
 
@@ -28,13 +29,17 @@ import dgca.verifier.app.engine.data.Rule
  *
  * Created by osarapulov on 11.06.21 11:10
  */
-class DefaultCertLogicEngine(private val jsonLogicValidator: JsonLogicValidator) : CertLogicEngine {
+class DefaultCertLogicEngine(
+    private val affectedFieldsDataRetriever: AffectedFieldsDataRetriever,
+    private val jsonLogicValidator: JsonLogicValidator
+) : CertLogicEngine {
     private val objectMapper = ObjectMapper()
 
     companion object {
         private const val EXTERNAL_KEY = "external"
         private const val PAYLOAD_KEY = "payload"
-        private const val DESCRIPTION = "description"
+        private const val CERTLOGIC_KEY = "CERTLOGIC"
+        private val CERTLOGIC_VERSION: Triple<Int, Int, Int> = Triple(1, 0, 0)
     }
 
     init {
@@ -56,44 +61,45 @@ class DefaultCertLogicEngine(private val jsonLogicValidator: JsonLogicValidator)
     }
 
     override fun validate(
+        certificateType: CertificateType,
         hcertVersionString: String,
-        schemaJson: String,
         rules: List<Rule>,
         externalParameter: ExternalParameter,
         payload: String
     ): List<ValidationResult> {
         return if (rules.isNotEmpty()) {
             val validationResults = mutableListOf<ValidationResult>()
-            val schemaJsonNode = objectMapper.readValue<JsonNode>(schemaJson)
             val dataJsonNode = prepareData(externalParameter, payload)
             val hcertVersion = hcertVersionString.toVersion()
             rules.forEach { rule ->
-                val ruleVersion = rule.version.toVersion()
+                val ruleEngineVersion = rule.engineVersion.toVersion()
+                val schemaVersion = rule.schemaVersion.toVersion()
                 val res = when {
-                    hcertVersion == null || ruleVersion == null || hcertVersion.first != ruleVersion.first -> Result.OPEN
-                    hcertVersion.isGreaterOrEqualThan(ruleVersion) &&
-                            jsonLogicValidator.isDataValid(
-                        rule.logic,
-                        dataJsonNode
-                    ) -> Result.PASSED
+                    rule.engine != CERTLOGIC_KEY
+                            || ruleEngineVersion == null || !CERTLOGIC_VERSION
+                        .isGreaterOrEqualThan(ruleEngineVersion)
+                            || hcertVersion == null || schemaVersion == null || hcertVersion.first != schemaVersion.first -> Result.OPEN
+                    hcertVersion.isGreaterOrEqualThan(schemaVersion) ->
+                        when (jsonLogicValidator.isDataValid(
+                            rule.logic,
+                            dataJsonNode
+                        )) {
+                            true -> Result.PASSED
+                            false -> Result.FAIL
+                            else -> Result.OPEN
+                        }
                     else -> Result.FAIL
                 }
-                val cur = StringBuilder()
-                rule.affectedString.forEach { affectedField ->
-                    val description =
-                        schemaJsonNode.findValue(affectedField)?.findValue(DESCRIPTION)?.asText()
-                    val currentState = dataJsonNode.findValue(affectedField)?.asText()
-                    if (description?.isNotBlank() == true && currentState?.isNotBlank() == true) {
-                        cur.append(
-                            "$description: $currentState\n"
-                        )
-                    }
-                }
+                val cur: String = affectedFieldsDataRetriever.getAffectedFieldsData(
+                    rule,
+                    dataJsonNode,
+                    certificateType
+                )
                 validationResults.add(
                     ValidationResult(
                         rule,
                         res,
-                        cur.toString(),
+                        cur,
                         null
                     )
                 )

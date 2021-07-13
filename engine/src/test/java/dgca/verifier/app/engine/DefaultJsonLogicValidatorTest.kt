@@ -17,13 +17,16 @@
  *  limitations under the License.
  *  ---license-end
  *
- *  Created by osarapulov on 6/25/21 9:18 AM
+ *  Created by osarapulov on 7/8/21 12:08 PM
  */
 
-package dgca.verifier.app.engine.data.source.local.rules
+package dgca.verifier.app.engine
 
-import androidx.room.Embedded
-import androidx.room.Relation
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
+import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
 
 /*-
  * ---license-start
@@ -44,13 +47,23 @@ import androidx.room.Relation
  * limitations under the License.
  * ---license-end
  *
- * Created by osarapulov on 16.06.21 9:44
+ * Created by osarapulov on 08.07.21 12:08
  */
-data class RuleWithDescriptionsLocal(
-    @Embedded val rule: RuleLocal,
-    @Relation(
-        parentColumn = "ruleId",
-        entityColumn = "ruleContainerId"
-    )
-    val descriptions: List<DescriptionLocal>
-)
+class DefaultJsonLogicValidatorTest {
+ private val jsonLogicValidator = DefaultJsonLogicValidator()
+
+    @Test
+    fun testException() {
+        assertNull(jsonLogicValidator.isDataValid(jacksonObjectMapper().readValue("{}"), jacksonObjectMapper().readValue("{}")))
+    }
+
+    @Test
+    fun testPassed() {
+        assertEquals(true, jsonLogicValidator.isDataValid(jacksonObjectMapper().readValue("{\"var\": \"res\"}"), jacksonObjectMapper().readValue("{\"res\": true}")))
+    }
+
+    @Test
+    fun testFailed() {
+        assertEquals(false, jsonLogicValidator.isDataValid(jacksonObjectMapper().readValue("{\"var\": \"res\"}"), jacksonObjectMapper().readValue("{\"res\": false}")))
+    }
+}

@@ -23,6 +23,7 @@
 package dgca.verifier.app.engine
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import dgca.verifier.app.engine.data.CertificateType
 import dgca.verifier.app.engine.data.ExternalParameter
 import dgca.verifier.app.engine.data.source.remote.rules.RuleRemote
 import dgca.verifier.app.engine.data.source.remote.rules.toRules
@@ -65,10 +66,13 @@ internal class DefaultCertLogicEngineTest {
     companion object {
         const val RULE_JSON_FILE_NAME = "rule.json"
         const val HCERT_JSON_FILE_NAME = "hcert.json"
-        private const val JSON_SCHEMA = "{}"
+        const val STANDARD_VERSION = "1.0.0"
     }
 
     private val objectMapper = ObjectMapper().apply { findAndRegisterModules() }
+
+    @Mock
+    lateinit var affectedFieldsDataRetriever: AffectedFieldsDataRetriever
 
     @Mock
     lateinit var jsonLogicValidator: JsonLogicValidator
@@ -77,55 +81,179 @@ internal class DefaultCertLogicEngineTest {
 
     @Before
     fun setUp() {
-        certLogicEngine = DefaultCertLogicEngine(jsonLogicValidator)
+        certLogicEngine = DefaultCertLogicEngine(affectedFieldsDataRetriever, jsonLogicValidator)
 
         doReturn(true).`when`(jsonLogicValidator).isDataValid(any(), any())
+        doReturn("").`when`(affectedFieldsDataRetriever).getAffectedFieldsData(any(), any(), any())
     }
 
     @Test
     fun testInconsistentOpenVersions() {
-        val ruleVersion = "2.0.0"
+        val schemaVersion = "2.0.0"
         val hcertJson = mockHcertJson()
-        val rules = listOf(mockRuleRemote(ruleVersion)).toRules()
+        val rules = listOf(mockRuleRemote(schemaVersion)).toRules()
         val externalParameter = mockExternalParameter()
 
         assertEquals(
             Result.OPEN,
-            certLogicEngine.validate("1.0.0", JSON_SCHEMA, rules, externalParameter, hcertJson)
+            certLogicEngine.validate(
+                CertificateType.VACCINATION,
+                STANDARD_VERSION,
+                rules,
+                externalParameter,
+                hcertJson
+            )
                 .first().result
         )
 
         assertEquals(
             Result.OPEN,
-            certLogicEngine.validate("3.0.0", JSON_SCHEMA, rules, externalParameter, hcertJson)
+            certLogicEngine.validate(
+                CertificateType.VACCINATION,
+                "3.0.0",
+                rules,
+                externalParameter,
+                hcertJson
+            )
                 .first().result
         )
     }
 
     @Test
     fun testInconsistentFailedVersions() {
-        val ruleVersion = "2.2.0"
+        val schemaVersion = "2.2.0"
         val hcertJson = mockHcertJson()
-        val rules = listOf(mockRuleRemote(ruleVersion)).toRules()
+        val rules = listOf(mockRuleRemote(schemaVersion)).toRules()
         val externalParameter = mockExternalParameter()
 
         assertEquals(
             Result.FAIL,
-            certLogicEngine.validate("2.1.0", JSON_SCHEMA, rules, externalParameter, hcertJson)
+            certLogicEngine.validate(
+                CertificateType.VACCINATION,
+                "2.1.0",
+                rules,
+                externalParameter,
+                hcertJson
+            )
                 .first().result
         )
     }
 
     @Test
     fun testConsistentVersions() {
-        val ruleVersion = "2.0.0"
+        val schemaVersion = "2.0.0"
         val hcertJson = mockHcertJson()
-        val rules = listOf(mockRuleRemote(ruleVersion)).toRules()
+        val rules = listOf(mockRuleRemote(schemaVersion)).toRules()
         val externalParameter = mockExternalParameter()
 
         assertEquals(
             Result.PASSED,
-            certLogicEngine.validate("2.1.0", JSON_SCHEMA, rules, externalParameter, hcertJson)
+            certLogicEngine.validate(
+                CertificateType.VACCINATION,
+                "2.1.0",
+                rules,
+                externalParameter,
+                hcertJson
+            )
+                .first().result
+        )
+    }
+
+    @Test
+    fun testInconsistentEngine() {
+        val engineVersion = "2.0.0"
+        val hcertJson = mockHcertJson()
+        val rules = listOf(mockRuleRemote(engineVersion = engineVersion)).toRules()
+        val externalParameter = mockExternalParameter()
+
+        assertEquals(
+            Result.OPEN,
+            certLogicEngine.validate(
+                CertificateType.VACCINATION,
+                STANDARD_VERSION,
+                rules,
+                externalParameter,
+                hcertJson
+            )
+                .first().result
+        )
+    }
+
+    @Test
+    fun testInconsistentEngineVersion() {
+        val customEngine = "CUSTOMENGINE"
+        val hcertJson = mockHcertJson()
+        val rules = listOf(mockRuleRemote(engine = customEngine)).toRules()
+        val externalParameter = mockExternalParameter()
+
+        assertEquals(
+            Result.OPEN,
+            certLogicEngine.validate(
+                CertificateType.VACCINATION,
+                STANDARD_VERSION,
+                rules,
+                externalParameter,
+                hcertJson
+            )
+                .first().result
+        )
+    }
+
+    @Test
+    fun testEngineVersionIsGreater() {
+        val hcertJson = mockHcertJson()
+        val rules = listOf(mockRuleRemote(engineVersion = "0.7.5")).toRules()
+        val externalParameter = mockExternalParameter()
+        doReturn(true).`when`(jsonLogicValidator).isDataValid(any(), any())
+
+        assertEquals(
+            Result.PASSED,
+            certLogicEngine.validate(
+                CertificateType.VACCINATION,
+                STANDARD_VERSION,
+                rules,
+                externalParameter,
+                hcertJson
+            )
+                .first().result
+        )
+    }
+
+    @Test
+    fun testEngineVersionIsLower() {
+        val hcertJson = mockHcertJson()
+        val rules = listOf(mockRuleRemote(engineVersion = "1.7.5")).toRules()
+        val externalParameter = mockExternalParameter()
+
+        assertEquals(
+            Result.OPEN,
+            certLogicEngine.validate(
+                CertificateType.VACCINATION,
+                STANDARD_VERSION,
+                rules,
+                externalParameter,
+                hcertJson
+            )
+                .first().result
+        )
+    }
+
+    @Test
+    fun testValidatedWithException() {
+        doReturn(null).`when`(jsonLogicValidator).isDataValid(any(), any())
+        val hcertJson = mockHcertJson()
+        val rules = listOf(mockRuleRemote()).toRules()
+        val externalParameter = mockExternalParameter()
+
+        assertEquals(
+            Result.OPEN,
+            certLogicEngine.validate(
+                CertificateType.VACCINATION,
+                STANDARD_VERSION,
+                rules,
+                externalParameter,
+                hcertJson
+            )
                 .first().result
         )
     }
@@ -136,22 +264,29 @@ internal class DefaultCertLogicEngineTest {
         return IOUtils.toString(hcertExampleIs, Charset.defaultCharset())
     }
 
-    private fun mockRuleRemote(version: String = "1.0.0"): RuleRemote {
+    private fun mockRuleRemote(
+        schemaVersion: String = STANDARD_VERSION,
+        engine: String = "CERTLOGIC",
+        engineVersion: String = STANDARD_VERSION
+    ): RuleRemote {
         val ruleExampleIs: InputStream =
             javaClass.classLoader!!.getResourceAsStream(RULE_JSON_FILE_NAME)
         val ruleJson = IOUtils.toString(ruleExampleIs, Charset.defaultCharset())
-        return objectMapper.readValue(ruleJson, RuleRemote::class.java).copy(version = version)
+        return objectMapper.readValue(ruleJson, RuleRemote::class.java)
+            .copy(schemaVersion = schemaVersion, engine = engine, engineVersion = engineVersion)
     }
 
     private fun mockExternalParameter(
         kid: String = "kid",
         countryIsoCode: String = "de"
     ): ExternalParameter = ExternalParameter(
-        kid,
-        ZonedDateTime.now(),
-        emptyMap(),
-        countryIsoCode,
-        ZonedDateTime.now(),
-        ZonedDateTime.now()
+        validationClock = ZonedDateTime.now(),
+        valueSets = emptyMap(),
+        countryCode = countryIsoCode,
+        exp = ZonedDateTime.now(),
+        iat = ZonedDateTime.now(),
+        issuerCountryCode = countryIsoCode,
+        kid = kid,
+        region = ""
     )
 }

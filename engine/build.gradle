@@ -56,7 +56,6 @@ dependencies {
     implementation Deps.jackson_kotlin
     compileOnly Deps.jackson_datetype
     compileOnly Deps.retrofit2
-    compileOnly Deps.lifecycle_livedata_version
     compileOnly Deps.room_ktx
 
     compileOnly Deps.room_runtime

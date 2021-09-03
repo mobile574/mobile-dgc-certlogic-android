@@ -28,6 +28,8 @@ android {
     }
 
     compileOptions {
+        coreLibraryDesugaringEnabled true
+
         sourceCompatibility Config.javaVersion
         targetCompatibility Config.javaVersion
     }
@@ -48,18 +50,14 @@ android {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-//    implementation project(':certlogic')
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
 
     implementation Deps.kotlin_stdlib
     implementation Deps.kotlin_reflect
+    implementation Deps.kotlinx_coroutines_core
     compileOnly Deps.jackson_cbor
     implementation Deps.jackson_kotlin
     compileOnly Deps.jackson_datetype
-    compileOnly Deps.retrofit2
-    compileOnly Deps.room_ktx
-
-    compileOnly Deps.room_runtime
-    kapt Deps.room_compiler
 
     testImplementation Deps.test_junit
     testImplementation Deps.test_junit_jupiter_api
@@ -78,6 +76,7 @@ dependencies {
     androidTestImplementation Deps.test_ext
     androidTestImplementation Deps.appache_commons
 }
+
 
 task sourceCodeJar(type: Jar) {
     archiveClassifier.set('sources')
